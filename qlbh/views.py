@@ -114,3 +114,5 @@ class DoanhThuCuaHangView(View):
             'tong_doanh_thu': str(doanh_thu) # Chuyển Decimal sang string để JsonResponse xử lý
         }, status=200)
 
+    def test(self, request):
+        pass
