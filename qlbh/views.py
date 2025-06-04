@@ -8,7 +8,7 @@ from django.utils.dateparse import parse_datetime
 
 from .models import NhanVien
 
-from .tinh_doanh_thu.tinh_doanh_thu import tinh_doanh_thu_cua_hang
+from .service.tinh_doanh_thu import tinh_doanh_thu_cua_hang
 
 # Create your views here.
 
