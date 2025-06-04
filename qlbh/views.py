@@ -16,8 +16,9 @@ def index(request):
     return HttpResponse('Xin chào bạn đã đến app QLBH.')
 
 @method_decorator(csrf_exempt, name='dispatch')
-class NhanVienService(View):
+class NhanVienView(View):
     def get(self, request, manv = None):
+        """Lấy danh sách nhân viên hoặc theo manv"""
         if manv is not None:
             nhan_vien = NhanVien.objects.get(manv=manv)
             response_data = {
@@ -33,6 +34,7 @@ class NhanVienService(View):
             return JsonResponse(data, safe=False)
 
     def post(self, request):
+        """Thêm nhân viên"""
         try:
             # Đọc dữ liệu JSON từ request body
             data = json.loads(request.body)
