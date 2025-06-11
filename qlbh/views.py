@@ -1,7 +1,3 @@
-from django.db.models import QuerySet
-from django.db.models.expressions import result
-from django.db.models.fields import return_None
-from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -9,17 +5,19 @@ from django.utils.decorators import method_decorator
 import json
 from django.utils.dateparse import parse_datetime
 
-from .models import NhanVien, SanPham
+from .models import NhanVien, SanPham, KhachHang
 
 from .service.tinh_doanh_thu import tinh_doanh_thu_cua_hang
 from .service.nhan_vien import get_filtered_nhanvien, nhanvien_to_dict
 from .service.san_pham import get_filtered_sanpham, sanpham_to_dict
+from .service.khach_hang import get_filtered_khachhang, khachhang_to_dict
 
 # Create your views here.
 
 def index(request):
     return HttpResponse('Xin chào bạn đã đến app QLBH.')
 
+# --- Lớp NhanVienView ---
 @method_decorator(csrf_exempt, name='dispatch')
 class NhanVienView(View):
     def get(self, request):
@@ -48,6 +46,12 @@ class NhanVienView(View):
             # Đọc dữ liệu JSON từ request body
             data = json.loads(request.body)
 
+            # Kiểm tra manv
+            if not data.get('manv'):
+                return JsonResponse({"error": "Mã nhân viên (manv) là bắt buộc để thêm."}, status=400)
+            if KhachHang.objects.filter(manv=data['manv']).exists():
+                return JsonResponse({"error": f"Mã nhân viên '{data['manv']}' đã tồn tại."}, status=409)
+
             # Tạo mới nhân viên từ dữ liệu JSON
             data = NhanVien.objects.create(
                 manv = data.get('manv'),
@@ -66,8 +70,12 @@ class NhanVienView(View):
         try:
             # Đọc dữ liệu JSON từ request body
             data = json.loads(request.body)
+            manv = data.get('manv')
+            if not manv:
+                return JsonResponse({"error": "Mã nhân viên (manv) là bắt buộc."}, status=400)
+
             # Tìm nhân viên
-            nhan_vien = NhanVien.objects.get(manv=data.get('manv'))
+            nhan_vien = NhanVien.objects.get(manv=manv)
 
             # Cập nhật các trường
             nhan_vien.hoten = data.get('hoten', nhan_vien.hoten)
@@ -89,19 +97,24 @@ class NhanVienView(View):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-    def delete(self, request, manv):
+    def delete(self, request):
         """Xóa một nhân viên"""
         try:
+            data = json.loads(request.body)
+            manv = data.get('masp')  # Lấy masp từ request body
+            if not manv:
+                return JsonResponse({"error": "Mã sản phẩm (masp) là bắt buộc."}, status=400)
+
             nhan_vien = NhanVien.objects.get(manv=manv)
-            nhan_vien_hoten = nhan_vien.hoten
+            hoten = nhan_vien.hoten
             nhan_vien.delete()
-            return JsonResponse({"message": f"Đã xóa nhân viên: {nhan_vien_hoten} (Mã: {manv})"},
-                                status=204)  # 204 No Content
+            return JsonResponse({"message": f"Đã xóa nhân viên: {hoten} (Mã: {manv})"},
+                                status=204)
+
         except NhanVien.DoesNotExist:
             return JsonResponse({"error": "Nhân viên không tồn tại."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-
 
 class DoanhThuCuaHangView(View):
     def get(self, request):
@@ -116,7 +129,7 @@ class DoanhThuCuaHangView(View):
 # --- Lớp SanPhamView ---
 @method_decorator(csrf_exempt, name='dispatch')
 class SanPhamView(View):
-    def get(self, request):  # Không còn tham số masp_path
+    def get(self, request):
         """Lấy danh sách sản phẩm hoặc tìm kiếm theo masp, tensp, nuocsx từ query string."""
         query_masp = request.GET.get('masp')
         query_tensp = request.GET.get('tensp')
@@ -135,7 +148,6 @@ class SanPhamView(View):
         except Exception as e:
             print(f"Lỗi không xác định trong GET SanPham: {e}")
             return JsonResponse({"error": f"Đã xảy ra lỗi: {str(e)}"}, status=500)
-
 
     def post(self, request):
         """Thêm một sản phẩm mới. Dữ liệu (bao gồm masp) được gửi trong request body."""
@@ -158,29 +170,23 @@ class SanPhamView(View):
                 gia=data.get('gia')
             )
             return JsonResponse(sanpham_to_dict(san_pham), status=201)  # 201 Created
-        except KeyError as e:
-            return JsonResponse({"error": f"Thiếu trường bắt buộc: {e}"}, status=400)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Dữ liệu JSON không hợp lệ."}, status=400)
+
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-    def put(self, request, *args, **kwargs):
+    def put(self, request):
         """
-        Cập nhật toàn bộ thông tin của một sản phẩm.
-        Mã sản phẩm (masp) để xác định sản phẩm cần cập nhật phải được gửi trong request body.
+        Cập nhật thông tin của một sản phẩm.
         """
         try:
             data = json.loads(request.body)
+            masp = data.get('masp')
+            if not masp:
+                return JsonResponse({"error": "Mã sản phẩm (masp) là bắt buộc."}, status=400)
 
-            target_masp = data.get('masp')  # Lấy masp từ request body
+            san_pham = SanPham.objects.get(masp=masp)
 
-            if not target_masp:
-                return JsonResponse({"error": "Mã sản phẩm (masp) là bắt buộc trong body để cập nhật."}, status=400)
-
-            san_pham = SanPham.objects.get(masp=target_masp)
-
-            # Cập nhật các trường. Dùng .get(key, old_value) để giữ giá trị cũ nếu không có trong request
+            # Cập nhật các trường
             san_pham.tensp = data.get('tensp', san_pham.tensp)
             san_pham.dvt = data.get('dvt', san_pham.dvt)
             san_pham.nuocsx = data.get('nuocsx', san_pham.nuocsx)
@@ -188,34 +194,136 @@ class SanPhamView(View):
 
             san_pham.save()
 
-            return JsonResponse(sanpham_to_dict(san_pham), status=200)  # 200 OK
+            return JsonResponse(sanpham_to_dict(san_pham), status=200)
+
         except SanPham.DoesNotExist:
-            return JsonResponse({"error": "Sản phẩm không tồn tại để cập nhật."}, status=404)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Dữ liệu JSON không hợp lệ."}, status=400)
+            return JsonResponse({"error": "Sản phẩm không tồn tại."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request):
         """
         Xóa một sản phẩm.
-        Mã sản phẩm (masp) để xác định sản phẩm cần xóa phải được gửi trong request body.
         """
         try:
             data = json.loads(request.body)
-            target_masp = data.get('masp')  # Lấy masp từ request body
+            masp = data.get('masp')  # Lấy masp từ request body
 
-            if not target_masp:
-                return JsonResponse({"error": "Mã sản phẩm (masp) là bắt buộc trong body để xóa."}, status=400)
+            if not masp:
+                return JsonResponse({"error": "Mã sản phẩm (masp) là bắt buộc."}, status=400)
 
-            san_pham = SanPham.objects.get(masp=target_masp)
+            san_pham = SanPham.objects.get(masp=masp)
             tensp = san_pham.tensp
             san_pham.delete()
-            return JsonResponse({"message": f"Đã xóa sản phẩm: {tensp} (Mã: {target_masp})"},
-                                status=204)  # 204 No Content
+
+            return JsonResponse({"message": f"Đã xóa sản phẩm: {tensp} (Mã: {masp})"},
+                                status=204)
+
         except SanPham.DoesNotExist:
-            return JsonResponse({"error": "Sản phẩm không tồn tại để xóa."}, status=404)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Dữ liệu JSON không hợp lệ."}, status=400)
+            return JsonResponse({"error": "Sản phẩm không tồn tại."}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+# --- KhachHangView Class ---
+@method_decorator(csrf_exempt, name='dispatch')
+class KhachHangView(View):
+    def get(self, request):
+        """
+        Lấy danh sách khách hàng hoặc tìm kiếm theo makh, hoten, sodt từ query string.
+        """
+        query_makh = request.GET.get('makh')
+        query_hoten = request.GET.get('hoten')
+        query_sodt = request.GET.get('sodt')
+
+        try:
+            data = get_filtered_khachhang(query_makh, query_hoten, query_sodt)
+
+            if isinstance(data, KhachHang):
+                return JsonResponse(khachhang_to_dict(data))
+            else:
+                return JsonResponse([khachhang_to_dict(nv) for nv in data], safe=False)
+
+
+        except KhachHang.DoesNotExist:
+            return JsonResponse({"error": "Không tìm thấy nhân viên theo thông tin cung cấp."})
+        except Exception as e:
+            print(f"Lỗi không xác định trong GET NhanVien: {e}")
+            return JsonResponse({"error": f"Đã xảy ra lỗi: {str(e)}"}, status=500)
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+
+            # Validate required fields
+            if not data.get('makh'):
+                return JsonResponse({"error": "Mã khách hàng (makh) là bắt buộc để thêm."}, status=400)
+
+            # Kiểm tra xem makh đã tồn tại chưa
+            if KhachHang.objects.filter(masp=data['makh']).exists():
+                return JsonResponse({"error": f"Mã khách hàng '{data['makh']}' đã tồn tại."}, status=409)
+
+            khach_hang = KhachHang.objects.create(
+                makh=data['makh'],
+                hoten=data['hoten'],
+                dchi=data.get('dchi'),
+                sodt=data.get('sodt'),
+                ngsinh=data.get('ngsinh'),
+                ngdk=data.get('ngdk'),
+                doanhso=data.get('doanhso')
+            )
+            return JsonResponse(khach_hang(khach_hang), status=201)  # 201 Created
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    def put(self, request):
+        """
+        Cập nhật thông tin khách hàng
+        """
+        try:
+            data = json.loads(request.body)
+
+            makh = data.get('makh')
+
+            if not makh:
+                return JsonResponse({"error": "Không tìm thấy mã khách hàng (makh)."}, status=400)
+
+            khach_hang = KhachHang.objects.get(makh=makh)
+
+            # Cập nhật các trường
+            khach_hang.hoten = data.get('hoten', khach_hang.hoten)
+            khach_hang.dchi = data.get('dchi', khach_hang.dchi)
+            khach_hang.sodt = data.get('sodt', khach_hang.sodt)
+            khach_hang.ngsinh = data.get('ngsinh', khach_hang.ngsinh)
+            khach_hang.ngdk = data.get('ngdk', khach_hang.ngdk)
+            khach_hang.doanhso = data.get('doanhso', khach_hang.doanhso)
+
+            khach_hang.save()
+
+            return JsonResponse(khachhang_to_dict(khach_hang), status=200)  # 200 OK
+
+        except KhachHang.DoesNotExist:
+            return JsonResponse({"error": "Khách hàng không tồn tại."}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    def delete(self, request):
+        """
+        Xóa khách hàng
+        """
+        try:
+            data = json.loads(request.body)
+            makh = data.get('makh')
+            if not makh:
+                return JsonResponse({"error": "Mã khách hàng (makh) là bắt buộc."}, status=400)
+
+            khach_hang = KhachHang.objects.get(makh=makh)
+            hoten = khach_hang.hoten  # Save name before deleting
+            khach_hang.delete()
+            return JsonResponse({"message": f"Đã xóa khách hàng: {hoten} (ID: {makh})"},
+                                status=204)
+
+        except KhachHang.DoesNotExist:
+            return JsonResponse({"error": "Khách hàng không tồn tại."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
