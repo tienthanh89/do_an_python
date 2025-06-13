@@ -116,6 +116,8 @@ class NhanVienView(View):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
+# --- Lớp DoanhThuCuaHangView ---
+@method_decorator(csrf_exempt, name='dispatch')
 class DoanhThuCuaHangView(View):
     def get(self, request):
         # Gọi hàm tính doanh thu
