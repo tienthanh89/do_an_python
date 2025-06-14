@@ -2,10 +2,11 @@ from django.http import HttpResponse, JsonResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.db.models import Sum
 import json
 from django.utils.dateparse import parse_datetime
 
-from .models import NhanVien, SanPham, KhachHang
+from .models import NhanVien, SanPham, KhachHang, CTHD
 
 from .service.tinh_doanh_thu import tinh_doanh_thu_cua_hang
 from .service.nhan_vien import get_filtered_nhanvien, nhanvien_to_dict
@@ -226,6 +227,102 @@ class SanPhamView(View):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
+'Tim sp theo ma'
+
+class TimSanPhamTheoMaView(View):
+    def get(self, request):
+        ma = request.GET.get('masp', '').strip()
+
+        ket_qua = SanPham.objects.filter(masp__iexact=ma)
+        if ket_qua.exists():
+            data = list(ket_qua.values())
+            return JsonResponse({
+                "message": f"Tìm thấy {ket_qua.count()} sản phẩm.",
+                "data": data
+            })
+        else:
+            return JsonResponse({
+                "error": "Không tìm thấy sản phẩm nào."
+            }, status=404)
+
+'Tim sp theo ten'
+
+class TimSanPhamTheoTenView(View):
+    def get(self, request):
+        tensp = request.GET.get('tensp', '').strip()
+
+        ket_qua = SanPham.objects.filter(tensp__icontains=tensp)
+
+        if ket_qua.exists():
+            data = list(ket_qua.values())
+            return JsonResponse({
+                "message": f"Tìm thấy {ket_qua.count()} sản phẩm.",
+                "data": data
+            })
+        else:
+            return JsonResponse({
+                "error": "Không tìm thấy sản phẩm nào."
+            }, status=404)
+
+'Tim sp theo nuoc'
+
+class TimSanPhamTheoNuocSXView(View):
+    def get(self, request):
+        nuoc = request.GET.get('nuocsx', '').strip()
+
+        ket_qua = SanPham.objects.filter(nuocsx__icontains=nuoc)
+
+        if ket_qua.exists():
+            data = list(ket_qua.values())
+            return JsonResponse({
+                "message": f"Tìm thấy {ket_qua.count()} sản phẩm từ {nuoc}.",
+                "data": data
+            })
+        else:
+            return JsonResponse({
+                "error": f"Không tìm thấy sản phẩm nào từ {nuoc}."
+            }, status=404)
+
+'Tim top 3 san pham mua nhieu'
+
+class SanPhamMuaNhieuNhatView(View):
+    def get(self, request):
+        ket_qua = (
+            CTHD.objects.values('masp__masp', 'masp__tensp')
+            .annotate(tong_sl=Sum('sl'))
+            .order_by('-tong_sl')[:3]
+        )
+
+        if ket_qua:
+            return JsonResponse({
+                "message": "Top 3 sản phẩm được mua nhiều nhất",
+                "data": list(ket_qua)
+            })
+        else:
+            return JsonResponse({
+                "error": "Không có dữ liệu mua hàng."
+            }, status=404)
+
+'Tim top 3 san pham mua it'
+
+class SanPhamMuaItNhatView(View):
+    def get(self, request):
+        ket_qua = (
+            CTHD.objects.values('masp__masp', 'masp__tensp')
+            .annotate(tong_sl=Sum('sl'))
+            .order_by('tong_sl')[:3]
+        )
+
+        if ket_qua:
+            return JsonResponse({
+                "message": "Top 3 sản phẩm được mua ít nhất",
+                "data": list(ket_qua)
+            })
+        else:
+            return JsonResponse({
+                "error": "Không có dữ liệu mua hàng."
+            }, status=404)
+
 # --- KhachHangView Class ---
 @method_decorator(csrf_exempt, name='dispatch')
 class KhachHangView(View):
@@ -329,3 +426,7 @@ class KhachHangView(View):
             return JsonResponse({"error": "Khách hàng không tồn tại."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
+
+
+# --- HoaDonView Class ---
+
