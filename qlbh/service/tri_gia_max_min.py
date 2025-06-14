@@ -12,7 +12,7 @@ def tri_gia_max_min():
     #Gán thông tin hóa đơn lớn nhất nếu có
     if hoa_don_max is not None:
         data['hoa_don_tri_gia_lon_nhat'] = {
-            'sohd': hoa_don_max.sohd,
+            'sohd': hoa_don_max.sohd ,
             'nghd': hoa_don_max.nghd,
             'trigia': float(hoa_don_max.trigia),    #Ép kiểu về float để đảm bảo dữ liệu JSON đúng chuẩn
         }
