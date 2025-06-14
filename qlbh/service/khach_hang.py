@@ -1,6 +1,5 @@
 from qlbh.models import KhachHang
 
-
 def get_filtered_khachhang(query_makh, query_hoten, query_sodt):
     if query_makh:
         return KhachHang.objects.get(manv=query_makh)
