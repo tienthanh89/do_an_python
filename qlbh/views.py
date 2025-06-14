@@ -51,7 +51,7 @@ class NhanVienView(View):
             # Kiểm tra manv
             if not data.get('manv'):
                 return JsonResponse({"error": "Mã nhân viên (manv) là bắt buộc để thêm."}, status=400)
-            if KhachHang.objects.filter(manv=data['manv']).exists():
+            if NhanVien.objects.filter(manv=data['manv']).exists():
                 return JsonResponse({"error": f"Mã nhân viên '{data['manv']}' đã tồn tại."}, status=409)
 
             # Tạo mới nhân viên từ dữ liệu JSON
@@ -88,10 +88,10 @@ class NhanVienView(View):
 
             nhan_vien.save()
 
-            return JsonResponse([
-                {"message": "Cập nhật nhân viên thành công"},
-                nhanvien_to_dict(nhan_vien)
-            ], safe=False, status=200)
+            return JsonResponse({
+                "message": "Cập nhật nhân viên thành công",
+                "nhan_vien_moi": nhanvien_to_dict(nhan_vien)}
+            , safe=False, status=200)
         except NhanVien.DoesNotExist:
             return JsonResponse({"error": "Nhân viên không tồn tại."}, status=404)
         except json.JSONDecodeError:
@@ -103,7 +103,7 @@ class NhanVienView(View):
         """Xóa một nhân viên"""
         try:
             data = json.loads(request.body)
-            manv = data.get('masp')  # Lấy masp từ request body
+            manv = data.get('manv')
             if not manv:
                 return JsonResponse({"error": "Mã sản phẩm (masp) là bắt buộc."}, status=400)
 
@@ -117,18 +117,6 @@ class NhanVienView(View):
             return JsonResponse({"error": "Nhân viên không tồn tại."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-
-# --- Lớp DoanhThuCuaHangView ---
-@method_decorator(csrf_exempt, name='dispatch')
-class DoanhThuCuaHangView(View):
-    def get(self, request):
-        # Gọi hàm tính doanh thu
-        doanh_thu = tinh_doanh_thu_cua_hang()
-
-        # Trả về kết quả dưới dạng JSON
-        return JsonResponse({
-            'tong_doanh_thu': str(doanh_thu) # Chuyển Decimal sang string để JsonResponse xử lý
-        }, status=200)
 
 # --- Lớp SanPhamView ---
 @method_decorator(csrf_exempt, name='dispatch')
@@ -167,7 +155,7 @@ class SanPhamView(View):
                 return JsonResponse({"error": f"Mã sản phẩm '{data['masp']}' đã tồn tại."}, status=409)  # 409 Conflict
 
             san_pham = SanPham.objects.create(
-                masp=data['masp'],  # masp là bắt buộc
+                masp=data['masp'],
                 tensp=data.get('tensp'),
                 dvt=data.get('dvt'),
                 nuocsx=data.get('nuocsx'),
@@ -341,7 +329,7 @@ class KhachHangView(View):
             if isinstance(data, KhachHang):
                 return JsonResponse(khachhang_to_dict(data))
             else:
-                return JsonResponse([khachhang_to_dict(nv) for nv in data], safe=False)
+                return JsonResponse([khachhang_to_dict(kh) for kh in data], safe=False)
 
 
         except KhachHang.DoesNotExist:
@@ -353,26 +341,23 @@ class KhachHangView(View):
     def post(self, request):
         try:
             data = json.loads(request.body)
-
-            # Validate required fields
             if not data.get('makh'):
                 return JsonResponse({"error": "Mã khách hàng (makh) là bắt buộc để thêm."}, status=400)
 
             # Kiểm tra xem makh đã tồn tại chưa
-            if KhachHang.objects.filter(masp=data['makh']).exists():
+            if KhachHang.objects.filter(makh=data['makh']).exists():
                 return JsonResponse({"error": f"Mã khách hàng '{data['makh']}' đã tồn tại."}, status=409)
 
-            khach_hang = KhachHang.objects.create(
-                makh=data['makh'],
-                hoten=data['hoten'],
+            data = KhachHang.objects.create(
+                makh=data.get('makh'),
+                hoten=data.get('hoten'),
                 dchi=data.get('dchi'),
                 sodt=data.get('sodt'),
                 ngsinh=data.get('ngsinh'),
                 ngdk=data.get('ngdk'),
                 doanhso=data.get('doanhso')
             )
-            return JsonResponse(khach_hang(khach_hang), status=201)  # 201 Created
-
+            return JsonResponse(khachhang_to_dict(data), status=201)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
@@ -400,7 +385,10 @@ class KhachHangView(View):
 
             khach_hang.save()
 
-            return JsonResponse(khachhang_to_dict(khach_hang), status=200)  # 200 OK
+            return JsonResponse({
+                "message": "Cập nhật khách hàng thành công",
+                "khach_hang_moi": khachhang_to_dict(khach_hang)}
+            , safe=False, status=200)
 
         except KhachHang.DoesNotExist:
             return JsonResponse({"error": "Khách hàng không tồn tại."}, status=404)
@@ -431,7 +419,7 @@ class KhachHangView(View):
 # --- HoaDonView Class ---
 @method_decorator(csrf_exempt, name='dispatch')
 class DoanhSoKhachHangView(View):
-    def get(self):
+    def get(self, request):
         """
         Tính toán và trả về doanh số của từng khách hàng.
         """
@@ -457,8 +445,15 @@ class DoanhSoKhachHangView(View):
         except Exception as e:
             return JsonResponse({"error": f"Đã xảy ra lỗi khi tính doanh số: {str(e)}"}, status=500)
 
-class TimHoaDonMaxMin(View):
+# --- Lớp DoanhThuCuaHangView ---
+@method_decorator(csrf_exempt, name='dispatch')
+class DoanhThuCuaHangView(View):
     def get(self, request):
-        data = tri_gia_max_min()
-        return data
+        # Gọi hàm tính doanh thu
+        doanh_thu = tinh_doanh_thu_cua_hang()
+
+        # Trả về kết quả dưới dạng JSON
+        return JsonResponse({
+            'tong_doanh_thu': str(doanh_thu)
+        }, status=200)
 
