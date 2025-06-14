@@ -5,12 +5,10 @@ from django.utils.decorators import method_decorator
 from django.db.models import Sum
 import json
 from django.utils.dateparse import parse_datetime
-
 from .models import NhanVien, SanPham, KhachHang, CTHD
-
 from .service.tinh_doanh_thu import tinh_doanh_thu_cua_hang
 from .service.nhan_vien import get_filtered_nhanvien, nhanvien_to_dict
-from .service.san_pham import get_filtered_sanpham, sanpham_to_dict
+from .service.san_pham import get_filtered_sanpham, sanpham_to_dict, get_top_sanpham_mua_it, get_top_sanpham_mua_nhieu
 from .service.khach_hang import get_filtered_khachhang, khachhang_to_dict
 
 # Create your views here.
@@ -227,100 +225,68 @@ class SanPhamView(View):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-'Tim sp theo ma'
-
-class TimSanPhamTheoMaView(View):
+class TimSanPhamView(View):
     def get(self, request):
-        ma = request.GET.get('masp', '').strip()
-
-        ket_qua = SanPham.objects.filter(masp__iexact=ma)
-        if ket_qua.exists():
-            data = list(ket_qua.values())
-            return JsonResponse({
-                "message": f"Tìm thấy {ket_qua.count()} sản phẩm.",
-                "data": data
-            })
-        else:
-            return JsonResponse({
-                "error": "Không tìm thấy sản phẩm nào."
-            }, status=404)
-
-'Tim sp theo ten'
-
-class TimSanPhamTheoTenView(View):
-    def get(self, request):
+        masp = request.GET.get('masp', '').strip()
         tensp = request.GET.get('tensp', '').strip()
+        nuocsx = request.GET.get('nuocsx', '').strip()
 
-        ket_qua = SanPham.objects.filter(tensp__icontains=tensp)
+        ket_qua = get_filtered_sanpham(masp, tensp, nuocsx)
 
         if ket_qua.exists():
-            data = list(ket_qua.values())
+            data = [sanpham_to_dict(sp) for sp in ket_qua]
             return JsonResponse({
-                "message": f"Tìm thấy {ket_qua.count()} sản phẩm.",
+                "message": f"Tìm thấy {len(data)} sản phẩm.",
                 "data": data
             })
         else:
             return JsonResponse({
                 "error": "Không tìm thấy sản phẩm nào."
             }, status=404)
-
-'Tim sp theo nuoc'
-
-class TimSanPhamTheoNuocSXView(View):
-    def get(self, request):
-        nuoc = request.GET.get('nuocsx', '').strip()
-
-        ket_qua = SanPham.objects.filter(nuocsx__icontains=nuoc)
-
-        if ket_qua.exists():
-            data = list(ket_qua.values())
-            return JsonResponse({
-                "message": f"Tìm thấy {ket_qua.count()} sản phẩm từ {nuoc}.",
-                "data": data
-            })
-        else:
-            return JsonResponse({
-                "error": f"Không tìm thấy sản phẩm nào từ {nuoc}."
-            }, status=404)
-
-'Tim top 3 san pham mua nhieu'
 
 class SanPhamMuaNhieuNhatView(View):
     def get(self, request):
-        ket_qua = (
-            CTHD.objects.values('masp__masp', 'masp__tensp')
-            .annotate(tong_sl=Sum('sl'))
-            .order_by('-tong_sl')[:3]
-        )
+        ket_qua = get_top_sanpham_mua_nhieu()
 
-        if ket_qua:
+        if ket_qua.exists():
+            data = [
+                {
+                    "masp": item["masp__masp"],
+                    "tensp": item["masp__tensp"],
+                    "tong_so_luong": item["tong_sl"]
+                }
+                for item in ket_qua
+            ]
             return JsonResponse({
                 "message": "Top 3 sản phẩm được mua nhiều nhất",
-                "data": list(ket_qua)
-            })
+                "data": data
+            }, json_dumps_params={'ensure_ascii': False})
         else:
             return JsonResponse({
-                "error": "Không có dữ liệu mua hàng."
+                "error": "Không có dữ liệu."
             }, status=404)
 
-'Tim top 3 san pham mua it'
 
 class SanPhamMuaItNhatView(View):
     def get(self, request):
-        ket_qua = (
-            CTHD.objects.values('masp__masp', 'masp__tensp')
-            .annotate(tong_sl=Sum('sl'))
-            .order_by('tong_sl')[:3]
-        )
+        ket_qua = get_top_sanpham_mua_it()
 
-        if ket_qua:
+        if ket_qua.exists():
+            data = [
+                {
+                    "masp": item["masp__masp"],
+                    "tensp": item["masp__tensp"],
+                    "tong_so_luong": item["tong_sl"]
+                }
+                for item in ket_qua
+            ]
             return JsonResponse({
                 "message": "Top 3 sản phẩm được mua ít nhất",
-                "data": list(ket_qua)
-            })
+                "data": data
+            }, json_dumps_params={'ensure_ascii': False})
         else:
             return JsonResponse({
-                "error": "Không có dữ liệu mua hàng."
+                "error": "Không có dữ liệu."
             }, status=404)
 
 # --- KhachHangView Class ---
