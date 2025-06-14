@@ -7,7 +7,7 @@ from django.db.models import Sum
 import json
 from django.utils.dateparse import parse_datetime
 
-from .models import NhanVien, SanPham, KhachHang, CTHD
+from .models import NhanVien, SanPham, KhachHang, CTHD, HoaDon
 
 from .service.tinh_doanh_thu import tinh_doanh_thu_cua_hang, tinh_doanh_so_khach_hang
 from .service.nhan_vien import get_filtered_nhanvien, nhanvien_to_dict
@@ -312,6 +312,91 @@ class KhachHangView(View):
             return JsonResponse({"error": "Khách hàng không tồn tại."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
+
+# --- DonHangView Class ---
+@method_decorator(csrf_exempt, name='dispatch')
+class HoaDonView(View):
+    def get(self, request, sohd=None):
+        if sohd:
+            try:
+                hd = HoaDon.objects.get(sohd=sohd)
+                cthd_list = CTHD.objects.filter(sohd=hd)
+                chitiet = []
+                for c in cthd_list:
+                    chitiet.append({
+                        'masp': c.masp.masp,
+                        'tensp': c.masp.tensp,
+                        'sl': c.sl,
+                        'gia': c.masp.gia,
+                        'thanhtien': float(c.sl * c.masp.gia)
+                    })
+                return JsonResponse({
+                    'sohd': hd.sohd,
+                    'nghd': hd.nghd,
+                    'manv': hd.manv.manv if hd.manv else None,
+                    'makh': hd.makh.makh if hd.makh else None,
+                    'trigia': float(hd.trigia),
+                    'chitiet': chitiet
+                })
+            except HoaDon.DoesNotExist:
+                return JsonResponse({'error': 'Hóa đơn không tồn tại'}, status=404)
+        else:
+            hoa_dons = HoaDon.objects.all().values()
+            return JsonResponse(list(hoa_dons), safe=False)
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            hd = HoaDon.objects.create(
+                sohd=data['sohd'],
+                nghd=parse_datetime(data['nghd']),
+                makh_id=data['makh'],
+                manv_id=data['manv'],
+                trigia=0
+            )
+            tong = 0
+            for item in data['chitiet']:
+                sp = SanPham.objects.get(masp=item['masp'])
+                CTHD.objects.create(sohd=hd, masp=sp, sl=item['sl'])
+                tong += item['sl'] * float(sp.gia)
+            hd.trigia = tong
+            hd.save()
+            return JsonResponse({'message': 'Đã thêm hóa đơn', 'sohd': hd.sohd}, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    def put(self, request):
+        try:
+            data = json.loads(request.body)
+            hd = HoaDon.objects.get(sohd=data['sohd'])
+
+            hd.nghd = parse_datetime(data.get('nghd'))
+            hd.makh_id = data.get('makh')
+            hd.manv_id = data.get('manv')
+
+            CTHD.objects.filter(sohd=hd).delete()
+            total = 0
+            for item in data.get('chitiet', []):
+                sp = SanPham.objects.get(masp=item['masp'])
+                sl = item['sl']
+                CTHD.objects.create(sohd=hd, masp=sp, sl=sl)
+                total += sl * float(sp.gia)
+
+            hd.trigia = total
+            hd.save()
+
+            return JsonResponse({'message': 'Đã cập nhật hóa đơn', 'sohd': hd.sohd})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    def delete(self, request, sohd):
+        try:
+            hd = HoaDon.objects.get(sohd=sohd)
+            hd.delete()
+            return JsonResponse({'message': f'Đã xóa hóa đơn số {sohd}'}, status=204)
+        except HoaDon.DoesNotExist:
+            return JsonResponse({'error': 'Hóa đơn không tồn tại'}, status=404)
+
 
 # --- SanPhamMuaNhieuNhatView ---
 @method_decorator(csrf_exempt, name='dispatch')
