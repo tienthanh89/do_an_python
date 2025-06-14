@@ -8,10 +8,11 @@ from django.utils.dateparse import parse_datetime
 
 from .models import NhanVien, SanPham, KhachHang, CTHD
 
-from .service.tinh_doanh_thu import tinh_doanh_thu_cua_hang
+from .service.tinh_doanh_thu import tinh_doanh_thu_cua_hang, tinh_doanh_so_khach_hang
 from .service.nhan_vien import get_filtered_nhanvien, nhanvien_to_dict
 from .service.san_pham import get_filtered_sanpham, sanpham_to_dict
 from .service.khach_hang import get_filtered_khachhang, khachhang_to_dict
+from .service.tri_gia_max_min import tri_gia_max_min
 
 # Create your views here.
 
@@ -427,6 +428,37 @@ class KhachHangView(View):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-
 # --- HoaDonView Class ---
+@method_decorator(csrf_exempt, name='dispatch')
+class DoanhSoKhachHangView(View):
+    def get(self):
+        """
+        Tính toán và trả về doanh số của từng khách hàng.
+        """
+        try:
+            # Tính doanhso
+            doanh_so_khach_hang_annotated = tinh_doanh_so_khach_hang()
+
+            response_data = []
+            for khach_hang in doanh_so_khach_hang_annotated:
+                # Cập nhật
+                khach_hang.doanhso = khach_hang.calculated_doanhso
+                khach_hang.save()
+
+                # Thông tin trả về
+                response_data.append({
+                    'makh': khach_hang.makh,
+                    'hoten': khach_hang.hoten,
+                    'doanhso_cap_nhat': float(khach_hang.doanhso)
+                })
+
+            return JsonResponse(response_data, safe=False, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": f"Đã xảy ra lỗi khi tính doanh số: {str(e)}"}, status=500)
+
+class TimHoaDonMaxMin(View):
+    def get(self, request):
+        data = tri_gia_max_min()
+        return data
 
