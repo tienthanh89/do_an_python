@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import DoanhThuCuaHangView, NhanVienView, SanPhamView, KhachHangView, DoanhSoKhachHangView
+from .views import DoanhThuCuaHangView, NhanVienView, SanPhamView, KhachHangView, DoanhSoKhachHangView,TimHoaDonMaxMin
 
 urlpatterns = [
     path('index', views.index, name='index'),
@@ -10,4 +10,5 @@ urlpatterns = [
     path('khachhang', KhachHangView.as_view(), name='khachhang'),
     path('doanh-so-khach-hang', DoanhSoKhachHangView.as_view(), name='doanh-so-khach-hang'),
     path('doanh-thu/', DoanhThuCuaHangView.as_view(), name='doanh_thu_cua_hang'),
+    path('hoa-don-max-min/', TimHoaDonMaxMin.as_view(), name='hoa_don_max_min'),
 ]
