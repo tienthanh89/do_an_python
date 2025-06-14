@@ -3,6 +3,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.db.models import Sum
+
 import json
 from django.utils.dateparse import parse_datetime
 
@@ -13,6 +14,7 @@ from .service.nhan_vien import get_filtered_nhanvien, nhanvien_to_dict
 from .service.san_pham import get_filtered_sanpham, sanpham_to_dict
 from .service.khach_hang import get_filtered_khachhang, khachhang_to_dict
 from .service.tri_gia_max_min import tri_gia_max_min
+from .service.khach_hang_top import lay_khach_hang_doanh_so_cao_nhat
 
 # Create your views here.
 
@@ -401,3 +403,16 @@ class TimHoaDonMaxMinView(View):
     def get(self, request):
         data = tri_gia_max_min()
         return data
+
+#--- TimKhachHangCoDoanhSoCaoNhat ---
+@method_decorator(csrf_exempt, name='dispatch')
+class TimKhachHangCoDoanhSoCaoNhat(View):
+    def get(self, request):
+        try:
+            khach_hang_top = lay_khach_hang_doanh_so_cao_nhat()
+            if khach_hang_top:
+                return JsonResponse(khach_hang_top, status=200)
+            else:
+                return JsonResponse({"error": "Không có dữ liệu khách hàng."}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": f"Lỗi khi truy vấn: {str(e)}"}, status=500)
