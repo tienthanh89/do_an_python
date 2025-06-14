@@ -94,8 +94,6 @@ class NhanVienView(View):
             , safe=False, status=200)
         except NhanVien.DoesNotExist:
             return JsonResponse({"error": "Nhân viên không tồn tại."}, status=404)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Dữ liệu JSON không hợp lệ."}, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
@@ -167,9 +165,7 @@ class SanPhamView(View):
             return JsonResponse({"error": str(e)}, status=500)
 
     def put(self, request):
-        """
-        Cập nhật thông tin của một sản phẩm.
-        """
+        """Cập nhật thông tin của một sản phẩm."""
         try:
             data = json.loads(request.body)
             masp = data.get('masp')
@@ -220,9 +216,7 @@ class SanPhamView(View):
 @method_decorator(csrf_exempt, name='dispatch')
 class KhachHangView(View):
     def get(self, request):
-        """
-        Lấy danh sách khách hàng hoặc tìm kiếm theo makh, hoten, sodt từ query string.
-        """
+        """Lấy danh sách khách hàng hoặc tìm kiếm theo makh, hoten, sodt từ query string."""
         query_makh = request.GET.get('makh')
         query_hoten = request.GET.get('hoten')
         query_sodt = request.GET.get('sodt')
@@ -243,6 +237,7 @@ class KhachHangView(View):
             return JsonResponse({"error": f"Đã xảy ra lỗi: {str(e)}"}, status=500)
 
     def post(self, request):
+        """Thêm khách hàng"""
         try:
             data = json.loads(request.body)
             if not data.get('makh'):
@@ -266,9 +261,7 @@ class KhachHangView(View):
             return JsonResponse({"error": str(e)}, status=500)
 
     def put(self, request):
-        """
-        Cập nhật thông tin khách hàng
-        """
+        """Cập nhật thông tin khách hàng"""
         try:
             data = json.loads(request.body)
 
@@ -286,7 +279,6 @@ class KhachHangView(View):
             khach_hang.ngsinh = data.get('ngsinh', khach_hang.ngsinh)
             khach_hang.ngdk = data.get('ngdk', khach_hang.ngdk)
             khach_hang.doanhso = data.get('doanhso', khach_hang.doanhso)
-
             khach_hang.save()
 
             return JsonResponse({
@@ -403,3 +395,9 @@ class DoanhThuCuaHangView(View):
             'tong_doanh_thu': str(doanh_thu)
         }, status=200)
 
+# --- TimHoaDonMaxMinView ---
+@method_decorator(csrf_exempt, name='dispatch')
+class TimHoaDonMaxMinView(View):
+    def get(self, request):
+        data = tri_gia_max_min()
+        return data
