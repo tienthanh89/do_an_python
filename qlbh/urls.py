@@ -1,8 +1,9 @@
 from django.urls import path
 from . import views
+
 from .views import DoanhThuCuaHangView, NhanVienView, SanPhamView, KhachHangView, DoanhSoKhachHangView, \
     TimHoaDonMaxMinView, SanPhamMuaNhieuNhatView, SanPhamMuaItNhatView, TimKhachHangCoDoanhSoCaoNhat, HoaDonView
-
+from .service import views_auth
 urlpatterns = [
     path('index', views.index, name='index'),
 
@@ -17,6 +18,7 @@ urlpatterns = [
 
     path('doanh-so-khach-hang', DoanhSoKhachHangView.as_view(), name='doanh-so-khach-hang'),
     path('doanh-thu/', DoanhThuCuaHangView.as_view(), name='doanh_thu_cua_hang'),
+  
     path('khach-hang-top/', TimKhachHangCoDoanhSoCaoNhat.as_view(), name='khach-hang-top'),
 
     path('hoadon', HoaDonView.as_view(), name='danh_sach_hoa_don'),
@@ -25,4 +27,8 @@ urlpatterns = [
     path('hoa-don-max-min/', TimHoaDonMaxMinView.as_view(), name='hoa_don_max_min'),
     path('tim-kiem/san-pham/nhieu-nhat/', SanPhamMuaNhieuNhatView.as_view(), name='sp_mua_nhieu_nhat'),
     path('tim-kiem/san-pham/it-nhat/', SanPhamMuaItNhatView.as_view(), name='sp_mua_it_nhat'),
+  
+    path('register/', views_auth.register_view),
+    path('login/', views_auth.login_view),
+    path('forgot-password/', views_auth.forgot_password_view),
 ]

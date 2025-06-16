@@ -16,8 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from qlbh.service import views_auth
 
 urlpatterns = [
     path('qlbh/', include('qlbh.urls')),
-    path('admin/', admin.site.urls)
+    path('admin/', admin.site.urls),
+    path('register/', views_auth.register_view),
+    path('login/', views_auth.login_view),
+    path('forgot-password/', views_auth.forgot_password_view),
 ]
