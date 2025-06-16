@@ -58,7 +58,13 @@ class CTHD(models.Model):
     def __str__(self):
         return f"CTHD - HD:{self.sohd}, SP:{self.masp}"
 
+class User(models.Model):
+    username = models.CharField(max_length=50, unique=True)
+    password = models.CharField(max_length=128)
 
+    class Meta:
+        db_table = 'users'
+        managed = False
 
 
 
