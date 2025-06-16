@@ -37,9 +37,9 @@ class HoaDon(models.Model):
     trigia = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     # Quan hệ 1-N: Một khách hàng có nhiều hóa đơn
-    makh = models.ForeignKey(KhachHang, on_delete=models.SET_NULL, null=True, blank=True) # Foreign Key to KhachHang
+    makh = models.ForeignKey(KhachHang, on_delete=models.SET_NULL, null=True, blank=True)
     # Quan hệ 1-N: Một nhân viên lập nhiều hóa đơn
-    manv = models.ForeignKey(NhanVien, on_delete=models.SET_NULL, null=True, blank=True) # Foreign Key to NhanVien
+    manv = models.ForeignKey(NhanVien, on_delete=models.SET_NULL, null=True, blank=True)
 
     # Quan hệ N-N với SanPham thông qua CTHD (bảng trung gian cthd)
     san_phams = models.ManyToManyField(SanPham, through='CTHD')
@@ -48,12 +48,12 @@ class HoaDon(models.Model):
         return f"HD{self.sohd}"
 
 class CTHD(models.Model):
-    sohd = models.ForeignKey(HoaDon, on_delete=models.CASCADE) # Foreign Key to HoaDon
-    masp = models.ForeignKey(SanPham, on_delete=models.CASCADE) # Foreign Key to SanPham
+    sohd = models.ForeignKey(HoaDon, on_delete=models.CASCADE)
+    masp = models.ForeignKey(SanPham, on_delete=models.CASCADE)
     sl = models.IntegerField(null=True, blank=True)
 
     class Meta:
-        unique_together = (('sohd', 'masp'),) # Defines the composite primary key
+        unique_together = (('sohd', 'masp'),)
 
     def __str__(self):
         return f"CTHD - HD:{self.sohd}, SP:{self.masp}"
